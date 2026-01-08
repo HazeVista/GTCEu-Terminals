@@ -1,8 +1,0 @@
-Manifest-Version: 1.0
-Specification-Title: gtceuterminal
-Specification-Vendor: YourName
-Specification-Version: 1
-Implementation-Title: gtceu-terminal-addon
-Implementation-Version: 1.0.0
-Implementation-Vendor: YourName
-
