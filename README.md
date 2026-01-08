@@ -15,4 +15,4 @@ The Advanced Terminal is an upgrade to the GregTechCEu Modern Terminal with seve
 
 Special Thanks to Haze Vista, For providing textures and ideas.
 
-(Note: AE2 Inventory Connection will be implemented later, including Parallel Hatches)
+(Note: AE2 Inventory Connection will be implemented later, including Parallel Hatches, It also still doesn’t support wallsharing.)

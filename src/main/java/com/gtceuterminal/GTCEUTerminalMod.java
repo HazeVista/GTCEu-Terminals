@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 public class GTCEUTerminalMod {
 
     public static final String MOD_ID = "gtceuterminal";
-    public static final String NAME = "GTCEu Terminal Addon";
+    public static final String NAME = "GTCEu Terminal";
     public static final Logger LOGGER = LoggerFactory.getLogger(NAME);
 
     public GTCEUTerminalMod() {
@@ -27,7 +27,7 @@ public class GTCEUTerminalMod {
         // Register network packets
         modEventBus.addListener(this::commonSetup);
         
-        LOGGER.info("GTCEu Terminal Addon initialized");
+        LOGGER.info("GTCEu Terminal initialized");
     }
     
     private void commonSetup(FMLCommonSetupEvent event) {
