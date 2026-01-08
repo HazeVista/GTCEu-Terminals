@@ -1,6 +1,7 @@
 package com.gtceuterminal.common.multiblock;
 
 import com.gtceuterminal.GTCEUTerminalMod;
+import com.gtceuterminal.common.config.CoilConfig;
 
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.Collection;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class MultiblockScanner {
 
@@ -276,7 +279,7 @@ public class MultiblockScanner {
         String blockName = state.getBlock().getDescriptionId().toLowerCase();
 
         ComponentType type = identifyComponentType(blockName);
-        int tier = identifyTier(blockName);
+        int tier = identifyTier(blockName, state);
 
         // Debug logging for coils
         if (type == ComponentType.COIL) {
@@ -332,10 +335,10 @@ public class MultiblockScanner {
         return ComponentType.OTHER;
     }
 
-    private static int identifyTier(String blockName) {
+    private static int identifyTier(String blockName, BlockState state) {
         // Special handling for coils
         if (blockName.contains("coil")) {
-            return identifyCoilTier(blockName);
+            return CoilConfig.getCoilTier(state);
         }
 
         // Check for each tier name
@@ -346,36 +349,7 @@ public class MultiblockScanner {
             }
         }
 
-        // Alternative tier detection patterns
-        if (blockName.contains("ulv")) return GTValues.ULV;
-        if (blockName.contains("lv")) return GTValues.LV;
-        if (blockName.contains("mv")) return GTValues.MV;
-        if (blockName.contains("hv")) return GTValues.HV;
-        if (blockName.contains("ev")) return GTValues.EV;
-        if (blockName.contains("iv")) return GTValues.IV;
-        if (blockName.contains("luv")) return GTValues.LuV;
-        if (blockName.contains("zpm")) return GTValues.ZPM;
-        if (blockName.contains("uv")) return GTValues.UV;
-        if (blockName.contains("uhv")) return GTValues.UHV;
-        if (blockName.contains("uev")) return GTValues.UEV;
-        if (blockName.contains("uiv")) return GTValues.UIV;
-        if (blockName.contains("uxv")) return GTValues.UXV;
-        if (blockName.contains("opv")) return GTValues.OpV;
-        if (blockName.contains("max")) return GTValues.MAX;
-
-        return 0;
-    }
-
-    private static int identifyCoilTier(String blockName) {
-        if (blockName.contains("cupronickel")) return 0;
-        if (blockName.contains("kanthal")) return 1;
-        if (blockName.contains("nichrome")) return 2;
-        if (blockName.contains("rtm_alloy")) return 3;
-        if (blockName.contains("hss_g")) return 4;
-        if (blockName.contains("naquadah")) return 5;
-        if (blockName.contains("trinium")) return 6;
-        if (blockName.contains("tritanium")) return 7;
-        return 0;
+        return -1;
     }
 
     private static String getMultiblockName(IMultiController controller) {
@@ -392,17 +366,12 @@ public class MultiblockScanner {
             String name = className
                     .replace("MetaTileEntity", "")
                     .replace("Machine", "")
-                    .replace("Controller", "")
-                    .replace("Workable", "")
-                    .replace("Electric", "")
-                    .replace("Multiblock", "")
-                    .trim();
+                    .replace("Controller", "");
 
-            name = name.replaceAll("([a-z])([A-Z])", "$1 $2");
+            return Arrays.stream(name.split("(?=[A-Z])"))
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.joining(" "));
 
-            name = name.replaceAll("\\s+", " ").trim();
-
-            return name.isEmpty() ? "Unknown Multiblock" : name;
         } catch (Exception e) {
             return "Unknown Multiblock";
         }

@@ -21,7 +21,7 @@ public class ComponentUpgradeHelper {
             "kanthal_coil_block",        // 2700K - Tier 1
             "nichrome_coil_block",       // 3600K - Tier 2
             "rtm_alloy_coil_block",      // 4500K - Tier 3
-            "hss_g_coil_block",          // 5400K - Tier 4
+            "hssg_coil_block",          // 5400K - Tier 4
             "naquadah_coil_block",       // 7200K - Tier 5
             "trinium_coil_block",        // 9000K - Tier 6
             "tritanium_coil_block"       // 10800K - Tier 7

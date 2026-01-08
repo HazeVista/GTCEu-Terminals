@@ -147,12 +147,12 @@ public class ComponentUpgrader {
         // Calculate total materials needed
         Map<Item, Integer> totalRequired = new HashMap<>();
         boolean upgradingCoils = false;
-        
+
         for (ComponentInfo component : components) {
             if (!ComponentUpgradeHelper.canUpgrade(component, targetTier)) {
                 continue;
             }
-            
+
             // Check if we're upgrading coils
             if (component.getType() == ComponentType.COIL) {
                 upgradingCoils = true;
@@ -207,13 +207,54 @@ public class ComponentUpgrader {
         result.message = String.format("Upgraded %d/%d components",
                 result.successful, components.size());
 
+        // If coils were upgraded, inform the player they need to reset the multiblock
         if (upgradingCoils && result.successful > 0) {
+            // Get coil name for better feedback
+            String coilName = "Unknown Coil";
+            try {
+                ComponentInfo firstCoil = components.stream()
+                        .filter(c -> c.getType() == ComponentType.COIL)
+                        .findFirst()
+                        .orElse(null);
+                if (firstCoil != null) {
+                    String fullName = ComponentUpgradeHelper.getUpgradeName(firstCoil, targetTier);
+                    if (fullName != null && !fullName.isEmpty()) {
+                        coilName = fullName;
+                    }
+                }
+            } catch (Exception e) {
+                GTCEUTerminalMod.LOGGER.error("Error getting coil name for upgrade message", e);
+            }
+
+            // Chat message (permanent) - visible in chat history
             player.displayClientMessage(
-                net.minecraft.network.chat.Component.literal(
-                    "§e⚠ Coils upgraded! Break and replace the controller to update temperature"
-                ).withStyle(net.minecraft.ChatFormatting.YELLOW),
-                false
+                    net.minecraft.network.chat.Component.literal(
+                            String.format("§e⚠ Upgraded %d coils to §6%s", result.successful, coilName)
+                    ).withStyle(net.minecraft.ChatFormatting.YELLOW),
+                    false
             );
+
+            // Action bar message (temporary) - visible above hotbar for 3 seconds
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal(
+                            "§6⚠ Reset multiblock to apply new temperature"
+                    ).withStyle(net.minecraft.ChatFormatting.GOLD),
+                    true
+            );
+
+            // Sound effect for feedback
+            player.level().playSound(
+                    null,
+                    player.blockPosition(),
+                    net.minecraft.sounds.SoundEvents.ANVIL_USE,
+                    net.minecraft.sounds.SoundSource.PLAYERS,
+                    0.5F,
+                    1.2F
+            );
+
+            // Debug log
+            GTCEUTerminalMod.LOGGER.info("Player {} upgraded {} coils to {} (tier {})",
+                    player.getName().getString(), result.successful, coilName, targetTier);
         }
 
         return result;

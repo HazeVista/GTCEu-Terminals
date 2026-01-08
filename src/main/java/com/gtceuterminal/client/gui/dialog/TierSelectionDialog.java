@@ -1,7 +1,8 @@
 package com.gtceuterminal.client.gui.dialog;
 
-import com.gregtechceu.gtceu.api.GTValues;
+import com.gtceuterminal.GTCEUTerminalMod;
 import com.gtceuterminal.client.gui.multiblock.MultiStructureManagerScreen;
+import com.gtceuterminal.common.config.CoilConfig;
 import com.gtceuterminal.common.material.ComponentUpgradeHelper;
 import com.gtceuterminal.common.material.MaterialAvailability;
 import com.gtceuterminal.common.material.MaterialCalculator;
@@ -9,6 +10,9 @@ import com.gtceuterminal.common.multiblock.ComponentGroup;
 import com.gtceuterminal.common.multiblock.ComponentInfo;
 import com.gtceuterminal.common.multiblock.ComponentType;
 import com.gtceuterminal.common.multiblock.MultiblockInfo;
+
+import com.gregtechceu.gtceu.api.GTValues;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,6 +23,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.*;
 
 public class TierSelectionDialog extends Screen {
@@ -169,25 +175,28 @@ public class TierSelectionDialog extends Screen {
             options.add(new TierOption(targetTier, label, materials, hasEnough));
         }
     }
-    
-    /**
-     * Options for Coils:
-     *  0 -> Cupronickel Coil Block (1800K)
-     *  1 -> Kanthal Coil Block (2700K)
-     *  2 -> Nichrome Coil Block (3600K)
-     *  3 -> RTM Alloy Coil Block (4500K)
-     *  4 -> HSS-G Coil Block (5400K)
-     *  5 -> Naquadah Coil Block (7200K)
-     *  6 -> Trinium Coil Block (9000K)
-     *  7 -> Tritanium Coil Block (10800K)
-     */
+
     private void buildCoilOptions(ComponentInfo representative, int currentTier) {
-        for (int targetTier = 0; targetTier < 8; targetTier++) {
-            String coilName = ComponentUpgradeHelper.getUpgradeName(representative, targetTier);
-            if (coilName == null || coilName.isEmpty() || "Unknown Coil".equals(coilName)) {
+        List<CoilConfig.CoilEntry> allCoils = CoilConfig.getAllCoils();
+
+        // Log para debug
+        GTCEUTerminalMod.LOGGER.info("Building coil options. Current tier: {}, Total coils: {}",
+                currentTier, allCoils.size());
+
+        // Build options for ALL coil tiers except current
+        for (int targetTier = 0; targetTier < allCoils.size(); targetTier++) {
+            // Skip current tier
+            if (targetTier == currentTier) {
+                GTCEUTerminalMod.LOGGER.info("Skipping current tier: {}", targetTier);
                 continue;
             }
 
+            CoilConfig.CoilEntry coilEntry = allCoils.get(targetTier);
+            String coilName = CoilConfig.getCoilDisplayName(targetTier);
+
+            GTCEUTerminalMod.LOGGER.info("Adding coil option: tier={}, name={}", targetTier, coilName);
+
+            // Calcular coste para TODO el grupo
             Map<Item, Integer> perComponentCost =
                     MaterialCalculator.calculateUpgradeCost(representative, targetTier);
             Map<Item, Integer> totalCost = new HashMap<>();
@@ -196,6 +205,7 @@ public class TierSelectionDialog extends Screen {
                 totalCost.put(entry.getKey(), entry.getValue() * count);
             }
 
+            // Check availability
             List<MaterialAvailability> materials =
                     MaterialCalculator.checkMaterialsAvailability(totalCost, player, player.level());
             boolean hasEnough =
@@ -203,8 +213,11 @@ public class TierSelectionDialog extends Screen {
 
             MutableComponent label = buildCoilLabel(coilName, currentTier, targetTier, hasEnough);
 
-            options.add(new TierOption(targetTier, label, materials, hasEnough));
+            TierOption option = new TierOption(targetTier, label, materials, hasEnough);
+            options.add(option);
         }
+
+        GTCEUTerminalMod.LOGGER.info("Total coil options added: {}", options.size());
     }
 
     private void buildMufflerOptions(ComponentInfo representative, int currentTier) {
