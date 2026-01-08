@@ -179,7 +179,6 @@ public class TierSelectionDialog extends Screen {
     private void buildCoilOptions(ComponentInfo representative, int currentTier) {
         List<CoilConfig.CoilEntry> allCoils = CoilConfig.getAllCoils();
 
-        // Log para debug
         GTCEUTerminalMod.LOGGER.info("Building coil options. Current tier: {}, Total coils: {}",
                 currentTier, allCoils.size());
 
@@ -196,7 +195,6 @@ public class TierSelectionDialog extends Screen {
 
             GTCEUTerminalMod.LOGGER.info("Adding coil option: tier={}, name={}", targetTier, coilName);
 
-            // Calcular coste para TODO el grupo
             Map<Item, Integer> perComponentCost =
                     MaterialCalculator.calculateUpgradeCost(representative, targetTier);
             Map<Item, Integer> totalCost = new HashMap<>();
