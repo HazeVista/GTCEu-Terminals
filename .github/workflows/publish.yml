@@ -50,5 +50,5 @@ jobs:
             ldlib(required)
 
           curseforge-dependencies:
-            557242(required)
+            890405(required)
             626676(required)
