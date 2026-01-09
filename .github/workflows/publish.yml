@@ -22,7 +22,7 @@ jobs:
         run: chmod +x gradlew
         
       - name: Build
-        run: ./gradlew clean build
+        run: ./gradlew clean build -Pmod_version=${{ github.event.release.tag_name }}
 
       - name: Publish
         uses: Kir-Antipov/mc-publish@v3.3
