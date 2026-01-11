@@ -2,20 +2,21 @@ package com.gtceuterminal.common.network;
 
 import com.gtceuterminal.GTCEUTerminalMod;
 import com.gtceuterminal.common.data.SchematicData;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Supplier;
-
 public class CPacketSchematicAction {
-
     private final ActionType actionType;
     private final String schematicName;
     private final int schematicIndex;
@@ -29,111 +30,116 @@ public class CPacketSchematicAction {
     public CPacketSchematicAction(FriendlyByteBuf buf) {
         this.actionType = buf.readEnum(ActionType.class);
         this.schematicName = buf.readUtf();
-        this.schematicIndex = buf.readVarInt();
+        this.schematicIndex = buf.readInt();
     }
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeEnum(actionType);
-        buf.writeUtf(schematicName);
-        buf.writeVarInt(schematicIndex);
+        buf.writeEnum(this.actionType);
+        buf.writeUtf(this.schematicName);
+        buf.writeInt(this.schematicIndex);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+            if (player == null) {
+                return;
+            }
 
             ItemStack stack = findSchematicInterface(player);
-            if (stack.isEmpty()) return;
+            if (stack.isEmpty()) {
+                return;
+            }
 
             CompoundTag stackTag = stack.getOrCreateTag();
 
-            switch (actionType) {
-                case SAVE -> {
+            switch (this.actionType) {
+                case SAVE:
+                    // Verificar que hay clipboard
                     if (!stackTag.contains("Clipboard")) {
                         player.displayClientMessage(Component.literal("§eNo clipboard to save!"), true);
                         return;
                     }
 
-                    // Check if clipboard has blocks
                     CompoundTag clipboardTag = stackTag.getCompound("Clipboard");
                     if (!clipboardTag.contains("Blocks") || clipboardTag.getList("Blocks", 10).isEmpty()) {
                         player.displayClientMessage(Component.literal("§eClipboard is empty!"), true);
                         return;
                     }
 
-                    SchematicData clipboard = SchematicData.fromNBT(
-                            clipboardTag,
-                            player.level().registryAccess()
-                    );
+                    // Cargar clipboard CON su originalFacing
+                    SchematicData clipboard = SchematicData.fromNBT(clipboardTag, player.level().registryAccess());
 
-                    // Check for duplicate names
-                    List<SchematicData> schematics = loadSchematics(stack, player);
-                    boolean isDuplicate = schematics.stream()
-                            .anyMatch(bp -> bp.getName().equals(schematicName));
+                    // Verificar duplicados
+                    List<SchematicData> existingSchematics = loadSchematics(stack, player);
+                    boolean isDuplicate = existingSchematics.stream()
+                            .anyMatch(s -> s.getName().equals(this.schematicName));
 
                     if (isDuplicate) {
-                        player.displayClientMessage(
-                                Component.literal("§cSchematic name already exists!"),
-                                true
-                        );
+                        player.displayClientMessage(Component.literal("§cSchematic name already exists!"), true);
                         return;
                     }
 
-                    SchematicData named = new SchematicData(
-                            schematicName,
+                    // CORREGIDO: Crear nuevo schematic PRESERVANDO el originalFacing del clipboard
+                    SchematicData namedSchematic = new SchematicData(
+                            this.schematicName,
                             clipboard.getMultiblockType(),
-                            clipboard.getBlocks()
+                            clipboard.getBlocks(),
+                            clipboard.getOriginalFacing()  // ← CRÍTICO: Preservar orientación original
                     );
 
-                    schematics.add(named);
-                    saveSchematics(stack, schematics);
+                    existingSchematics.add(namedSchematic);
+                    saveSchematics(stack, existingSchematics);
+
+                    GTCEUTerminalMod.LOGGER.info("Saved schematic '{}' with originalFacing: {}",
+                            this.schematicName, clipboard.getOriginalFacing());
 
                     player.displayClientMessage(
-                            Component.literal("§aSaved schematic: " + schematicName),
+                            Component.literal("§aSaved schematic: " + this.schematicName),
                             true
                     );
-                }
+                    break;
 
-                case LOAD -> {
+                case LOAD:
                     List<SchematicData> schematics = loadSchematics(stack, player);
-                    if (schematicIndex >= 0 && schematicIndex < schematics.size()) {
-                        SchematicData schematic = schematics.get(schematicIndex);
+                    if (this.schematicIndex >= 0 && this.schematicIndex < schematics.size()) {
+                        SchematicData schematic = schematics.get(this.schematicIndex);
+
+                        // Cargar schematic al clipboard preservando su originalFacing
                         stackTag.put("Clipboard", schematic.toNBT());
+
+                        GTCEUTerminalMod.LOGGER.info("Loaded schematic '{}' with originalFacing: {}",
+                                schematic.getName(), schematic.getOriginalFacing());
 
                         player.displayClientMessage(
                                 Component.literal("§aLoaded schematic: " + schematic.getName()),
                                 true
                         );
                     }
-                }
+                    break;
 
-                case DELETE -> {
-                    List<SchematicData> schematics = loadSchematics(stack, player);
-                    if (schematicIndex >= 0 && schematicIndex < schematics.size()) {
-                        SchematicData removed = schematics.remove(schematicIndex);
-                        saveSchematics(stack, schematics);
-
+                case DELETE:
+                    List<SchematicData> allSchematics = loadSchematics(stack, player);
+                    if (this.schematicIndex >= 0 && this.schematicIndex < allSchematics.size()) {
+                        SchematicData removed = allSchematics.remove(this.schematicIndex);
+                        saveSchematics(stack, allSchematics);
                         player.displayClientMessage(
                                 Component.literal("§eDeleted schematic: " + removed.getName()),
                                 true
                         );
                     }
-                }
+                    break;
             }
         });
-
         ctx.get().setPacketHandled(true);
     }
 
     private ItemStack findSchematicInterface(ServerPlayer player) {
-        // Check main hand
         ItemStack mainHand = player.getMainHandItem();
         if (mainHand.getItem().toString().contains("schematic_interface")) {
             return mainHand;
         }
 
-        // Check off hand
         ItemStack offHand = player.getOffhandItem();
         if (offHand.getItem().toString().contains("schematic_interface")) {
             return offHand;
@@ -177,6 +183,6 @@ public class CPacketSchematicAction {
     public enum ActionType {
         SAVE,
         LOAD,
-        DELETE
+        DELETE;
     }
 }

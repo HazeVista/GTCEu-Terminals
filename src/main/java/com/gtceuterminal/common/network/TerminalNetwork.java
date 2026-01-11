@@ -7,10 +7,8 @@ import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
-/**
- * Handles network communication between client and server
- * it doesnt work,yet
- */
+ // Handles network communication between client and server
+
 public class TerminalNetwork {
 
     private static final String PROTOCOL_VERSION = "1";
@@ -40,6 +38,12 @@ public class TerminalNetwork {
                 .encoder(CPacketComponentUpgrade::encode)
                 .decoder(CPacketComponentUpgrade::decode)
                 .consumerMainThread(CPacketComponentUpgrade::handle)
+                .add();
+
+        CHANNEL.messageBuilder(CPacketSetCustomMultiblockName.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(CPacketSetCustomMultiblockName::encode)
+                .decoder(CPacketSetCustomMultiblockName::new)
+                .consumerMainThread(CPacketSetCustomMultiblockName::handle)
                 .add();
 
         GTCEUTerminalMod.LOGGER.info("Network packets registered");

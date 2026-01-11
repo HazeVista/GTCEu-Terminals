@@ -92,18 +92,24 @@ public class TierSelectionDialog extends Screen {
             buildMaintenanceOptions(representative, currentTier);
             return;
         }
-        
         if (type == ComponentType.COIL) {
             buildCoilOptions(representative, currentTier);
             return;
         }
-        
         if (type == ComponentType.MUFFLER) {
             buildMufflerOptions(representative, currentTier);
             return;
         }
+        if (type == ComponentType.PARALLEL_HATCH) {
+            buildParallelOptions(representative, currentTier);
+            return;
+        }
 
-        for (int targetTier = GTValues.ULV; targetTier <= GTValues.MAX; targetTier++) {
+        List<Integer> availableTiers = ComponentUpgradeHelper.getAvailableTiers(representative.getType());
+        for (int targetTier : availableTiers) {
+
+            // Skip current tier - no point in "upgrading" to the same tier
+            if (targetTier == currentTier) continue;
 
             String upgradeName = ComponentUpgradeHelper.getUpgradeName(representative, targetTier);
             if (upgradeName == null || upgradeName.isEmpty()) continue;
@@ -111,34 +117,46 @@ public class TierSelectionDialog extends Screen {
 
             String baseName = cleanComponentName(upgradeName);
 
-            Map<Item, Integer> perComponentCost =
-                    MaterialCalculator.calculateUpgradeCost(representative, targetTier);
+            Map<Item, Integer> perComponentCost = MaterialCalculator.calculateUpgradeCost(representative, targetTier);
             Map<Item, Integer> totalCost = new HashMap<>();
             int count = group.getCount();
-            for (Map.Entry<Item, Integer> entry : perComponentCost.entrySet()) {
-                totalCost.put(entry.getKey(), entry.getValue() * count);
-            }
+            for (Map.Entry<Item, Integer> e : perComponentCost.entrySet()) totalCost.put(e.getKey(), e.getValue() * count);
 
             List<MaterialAvailability> materials =
                     MaterialCalculator.checkMaterialsAvailability(totalCost, player, player.level());
-            boolean hasEnough =
-                    player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
+            boolean hasEnough = player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
 
-            MutableComponent label =
-                    buildTierLabel(baseName, currentTier, targetTier, hasEnough);
+            options.add(new TierOption(targetTier, buildTierLabel(baseName, currentTier, targetTier, hasEnough), materials, hasEnough));
+        }
+    }
 
-            options.add(new TierOption(targetTier, label, materials, hasEnough));
+    private void buildParallelOptions(ComponentInfo representative, int currentTier) {
+        int[] validTiers = new int[]{GTValues.IV, GTValues.LuV, GTValues.ZPM, GTValues.UV};
+
+        for (int targetTier : validTiers) {
+            if (targetTier == currentTier) continue;
+
+            String upgradeName = ComponentUpgradeHelper.getUpgradeName(representative, targetTier);
+            if (upgradeName == null || upgradeName.isEmpty()) continue;
+
+            String baseName = "Parallel Hatch";
+
+            Map<Item, Integer> perComponentCost = MaterialCalculator.calculateUpgradeCost(representative, targetTier);
+            Map<Item, Integer> totalCost = new HashMap<>();
+            int count = group.getCount();
+            for (Map.Entry<Item, Integer> e : perComponentCost.entrySet()) totalCost.put(e.getKey(), e.getValue() * count);
+
+            List<MaterialAvailability> materials =
+                    MaterialCalculator.checkMaterialsAvailability(totalCost, player, player.level());
+            boolean hasEnough = player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
+
+            options.add(new TierOption(targetTier, buildTierLabel(baseName, currentTier, targetTier, hasEnough), materials, hasEnough));
         }
     }
 
     private void buildMaintenanceOptions(ComponentInfo representative, int currentTier) {
-        int[] tiers = new int[] {
-                GTValues.LV,
-                GTValues.MV,
-                GTValues.HV,
-                GTValues.EV
-        };
-        String[] names = new String[] {
+        int[] tiers = new int[]{GTValues.LV, GTValues.MV, GTValues.HV, GTValues.EV};
+        String[] names = new String[]{
                 "Maintenance Hatch",
                 "Configurable Maintenance Hatch",
                 "Cleaning Maintenance Hatch",
@@ -147,114 +165,73 @@ public class TierSelectionDialog extends Screen {
 
         for (int i = 0; i < tiers.length; i++) {
             int targetTier = tiers[i];
+            if (targetTier == currentTier) continue;
 
             String upgradeName = ComponentUpgradeHelper.getUpgradeName(representative, targetTier);
-            if (upgradeName == null || upgradeName.isEmpty()
-                    || "air".equalsIgnoreCase(upgradeName)) {
-                continue;
-            }
+            if (upgradeName == null || upgradeName.isEmpty() || "air".equalsIgnoreCase(upgradeName)) continue;
 
             String baseName = names[i];
 
-            Map<Item, Integer> perComponentCost =
-                    MaterialCalculator.calculateUpgradeCost(representative, targetTier);
+            Map<Item, Integer> perComponentCost = MaterialCalculator.calculateUpgradeCost(representative, targetTier);
             Map<Item, Integer> totalCost = new HashMap<>();
             int count = group.getCount();
-            for (Map.Entry<Item, Integer> entry : perComponentCost.entrySet()) {
-                totalCost.put(entry.getKey(), entry.getValue() * count);
-            }
+            for (Map.Entry<Item, Integer> e : perComponentCost.entrySet()) totalCost.put(e.getKey(), e.getValue() * count);
 
             List<MaterialAvailability> materials =
                     MaterialCalculator.checkMaterialsAvailability(totalCost, player, player.level());
-            boolean hasEnough =
-                    player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
+            boolean hasEnough = player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
 
-            MutableComponent label =
-                    buildMaintenanceLabel(baseName, currentTier, targetTier, hasEnough);
-
-            options.add(new TierOption(targetTier, label, materials, hasEnough));
+            options.add(new TierOption(targetTier, buildMaintenanceLabel(baseName, currentTier, targetTier, hasEnough), materials, hasEnough));
         }
     }
 
     private void buildCoilOptions(ComponentInfo representative, int currentTier) {
         List<CoilConfig.CoilEntry> allCoils = CoilConfig.getAllCoils();
 
-        GTCEUTerminalMod.LOGGER.info("Building coil options. Current tier: {}, Total coils: {}",
-                currentTier, allCoils.size());
+        GTCEUTerminalMod.LOGGER.info("Building coil options. Current tier: {}, Total coils: {}", currentTier, allCoils.size());
 
-        // Build options for ALL coil tiers except current
         for (int targetTier = 0; targetTier < allCoils.size(); targetTier++) {
-            // Skip current tier
-            if (targetTier == currentTier) {
-                GTCEUTerminalMod.LOGGER.info("Skipping current tier: {}", targetTier);
-                continue;
-            }
+            if (targetTier == currentTier) continue;
 
-            CoilConfig.CoilEntry coilEntry = allCoils.get(targetTier);
             String coilName = CoilConfig.getCoilDisplayName(targetTier);
 
-            GTCEUTerminalMod.LOGGER.info("Adding coil option: tier={}, name={}", targetTier, coilName);
-
-            Map<Item, Integer> perComponentCost =
-                    MaterialCalculator.calculateUpgradeCost(representative, targetTier);
+            Map<Item, Integer> perComponentCost = MaterialCalculator.calculateUpgradeCost(representative, targetTier);
             Map<Item, Integer> totalCost = new HashMap<>();
             int count = group.getCount();
-            for (Map.Entry<Item, Integer> entry : perComponentCost.entrySet()) {
-                totalCost.put(entry.getKey(), entry.getValue() * count);
-            }
+            for (Map.Entry<Item, Integer> e : perComponentCost.entrySet()) totalCost.put(e.getKey(), e.getValue() * count);
 
-            // Check availability
             List<MaterialAvailability> materials =
                     MaterialCalculator.checkMaterialsAvailability(totalCost, player, player.level());
-            boolean hasEnough =
-                    player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
+            boolean hasEnough = player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
 
-            MutableComponent label = buildCoilLabel(coilName, currentTier, targetTier, hasEnough);
-
-            TierOption option = new TierOption(targetTier, label, materials, hasEnough);
-            options.add(option);
+            options.add(new TierOption(targetTier, buildCoilLabel(coilName, currentTier, targetTier, hasEnough), materials, hasEnough));
         }
-
-        GTCEUTerminalMod.LOGGER.info("Total coil options added: {}", options.size());
     }
 
     private void buildMufflerOptions(ComponentInfo representative, int currentTier) {
-        int[] validTiers = new int[] {
-            GTValues.LV,   // 1
-            GTValues.MV,   // 2
-            GTValues.HV,   // 3
-            GTValues.EV,   // 4
-            GTValues.IV,   // 5
-            GTValues.LuV,  // 6
-            GTValues.ZPM,  // 7
-            GTValues.UV    // 8
+        int[] validTiers = new int[]{
+                GTValues.LV, GTValues.MV, GTValues.HV, GTValues.EV,
+                GTValues.IV, GTValues.LuV, GTValues.ZPM, GTValues.UV
         };
-        
+
         for (int targetTier : validTiers) {
+            if (targetTier == currentTier) continue;
+
             String upgradeName = ComponentUpgradeHelper.getUpgradeName(representative, targetTier);
-            if (upgradeName == null || upgradeName.isEmpty()) {
-                continue;
-            }
+            if (upgradeName == null || upgradeName.isEmpty()) continue;
 
             String baseName = cleanComponentName(upgradeName);
 
-            Map<Item, Integer> perComponentCost =
-                    MaterialCalculator.calculateUpgradeCost(representative, targetTier);
+            Map<Item, Integer> perComponentCost = MaterialCalculator.calculateUpgradeCost(representative, targetTier);
             Map<Item, Integer> totalCost = new HashMap<>();
             int count = group.getCount();
-            for (Map.Entry<Item, Integer> entry : perComponentCost.entrySet()) {
-                totalCost.put(entry.getKey(), entry.getValue() * count);
-            }
+            for (Map.Entry<Item, Integer> e : perComponentCost.entrySet()) totalCost.put(e.getKey(), e.getValue() * count);
 
             List<MaterialAvailability> materials =
                     MaterialCalculator.checkMaterialsAvailability(totalCost, player, player.level());
-            boolean hasEnough =
-                    player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
+            boolean hasEnough = player.isCreative() || MaterialCalculator.hasEnoughMaterials(materials);
 
-            MutableComponent label =
-                    buildTierLabel(baseName, currentTier, targetTier, hasEnough);
-
-            options.add(new TierOption(targetTier, label, materials, hasEnough));
+            options.add(new TierOption(targetTier, buildTierLabel(baseName, currentTier, targetTier, hasEnough), materials, hasEnough));
         }
     }
 
@@ -264,44 +241,26 @@ public class TierSelectionDialog extends Screen {
 
         int right = dialogX + DIALOG_WIDTH;
         int bottom = dialogY + dialogHeight;
-        fillGradient(graphics, dialogX, dialogY, right, bottom, 0xC0000000, 0xC0000000);
+        graphics.fillGradient(dialogX, dialogY, right, bottom, 0xC0000000, 0xC0000000);
 
         Component title = Component.literal("Select Upgrade Tier");
         int titleWidth = this.font.width(title);
-        graphics.drawString(
-                this.font,
-                title,
-                dialogX + (DIALOG_WIDTH - titleWidth) / 2,
-                dialogY + 6,
-                0xFFFFFF,
-                false
-        );
+        graphics.drawString(this.font, title, dialogX + (DIALOG_WIDTH - titleWidth) / 2, dialogY + 6, 0xFFFFFF, false);
 
         ComponentInfo representative = group.getRepresentative();
         if (representative != null) {
             ComponentType type = representative.getType();
 
-            Component currentText;
-            if (type == ComponentType.MAINTENANCE) {
-                String name = cleanComponentName(representative.getDisplayName());
-                currentText = Component.literal(name + " x" + group.getCount());
-            } else if (type == ComponentType.COIL) {
-                String coilName = ComponentUpgradeHelper.getUpgradeName(representative, group.getTier());
-                currentText = Component.literal(coilName + " x" + group.getCount());
+            Component header;
+            if (type == ComponentType.COIL) {
+                String coilName = cleanComponentName(ComponentUpgradeHelper.getUpgradeName(representative, group.getTier()));
+                header = Component.literal(coilName + " x" + group.getCount());
             } else {
                 String name = cleanComponentName(representative.getDisplayName());
-                String tierName = tierName(group.getTier());
-                currentText = Component.literal(name + " (" + tierName + ") x" + group.getCount());
+                header = Component.literal(name + " x" + group.getCount());
             }
 
-            graphics.drawString(
-                    this.font,
-                    currentText,
-                    dialogX + 6,
-                    dialogY + 18,
-                    0xFFFFFF,
-                    false
-            );
+            graphics.drawString(this.font, header, dialogX + 6, dialogY + 18, 0xFFFFFF, false);
         }
 
         int rowLeft = dialogX + 6;
@@ -318,48 +277,16 @@ public class TierSelectionDialog extends Screen {
             int rowTop = listTop + i * ROW_HEIGHT;
             int rowBottom = rowTop + ROW_HEIGHT;
 
-            boolean hovered =
-                    mouseX >= rowLeft && mouseX < rowRight && mouseY >= rowTop && mouseY < rowBottom;
+            boolean hovered = mouseX >= rowLeft && mouseX < rowRight && mouseY >= rowTop && mouseY < rowBottom;
+            graphics.fill(rowLeft, rowTop, rowRight, rowBottom, hovered ? 0x40FFFFFF : 0x20FFFFFF);
 
-            int bgColor = hovered ? 0x40FFFFFF : 0x20FFFFFF;
-            graphics.fill(rowLeft, rowTop, rowRight, rowBottom, bgColor);
-
-            int textColor =
-                    option.hasEnough || player.isCreative() ? 0xFFFFFF : 0xFF5555;
-
-            graphics.drawString(
-                    this.font,
-                    option.label,
-                    rowLeft + 2,
-                    rowTop + 3,
-                    textColor,
-                    false
-            );
+            int textColor = option.hasEnough || player.isCreative() ? 0xFFFFFF : 0xFF5555;
+            graphics.drawString(this.font, option.label, rowLeft + 2, rowTop + 3, textColor, false);
         }
 
-        Component hint =
-                Component.literal("Click an option to upgrade, ESC to cancel");
+        Component hint = Component.literal("Click an option to upgrade, ESC to cancel");
         int hintWidth = this.font.width(hint);
-        graphics.drawString(
-                this.font,
-                hint,
-                dialogX + (DIALOG_WIDTH - hintWidth) / 2,
-                bottom - 12,
-                0xAAAAAA,
-                false
-        );
-    }
-
-    private void fillGradient(
-            GuiGraphics graphics,
-            int x1,
-            int y1,
-            int x2,
-            int y2,
-            int color1,
-            int color2
-    ) {
-        graphics.fillGradient(x1, y1, x2, y2, color1, color2);
+        graphics.drawString(this.font, hint, dialogX + (DIALOG_WIDTH - hintWidth) / 2, bottom - 12, 0xAAAAAA, false);
     }
 
     @Override
@@ -368,8 +295,7 @@ public class TierSelectionDialog extends Screen {
             int rowLeft = dialogX + 6;
             int rowRight = dialogX + DIALOG_WIDTH - 6;
 
-            if (mouseX < rowLeft || mouseX >= rowRight
-                    || mouseY < listTop || mouseY >= listBottom) {
+            if (mouseX < rowLeft || mouseX >= rowRight || mouseY < listTop || mouseY >= listBottom) {
                 this.onClose();
                 return true;
             }
@@ -387,13 +313,9 @@ public class TierSelectionDialog extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (options.size() <= visibleRows) {
-            return false;
-        }
-        if (mouseX < dialogX || mouseX > dialogX + DIALOG_WIDTH
-                || mouseY < listTop || mouseY > listBottom) {
-            return false;
-        }
+        if (options.size() <= visibleRows) return false;
+        if (mouseX < dialogX || mouseX > dialogX + DIALOG_WIDTH || mouseY < listTop || mouseY > listBottom) return false;
+
         int maxOffset = Math.max(0, options.size() - visibleRows);
         scrollOffset = Mth.clamp(scrollOffset - (int) Math.signum(delta), 0, maxOffset);
         return true;
@@ -409,9 +331,7 @@ public class TierSelectionDialog extends Screen {
                 player,
                 () -> {
                     mc.setScreen(parent);
-                    if (onCloseCallback != null) {
-                        onCloseCallback.run();
-                    }
+                    if (onCloseCallback != null) onCloseCallback.run();
                 }
         ));
     }
@@ -420,38 +340,79 @@ public class TierSelectionDialog extends Screen {
     public void onClose() {
         Minecraft mc = Minecraft.getInstance();
         mc.setScreen(parent);
-        if (onCloseCallback != null) {
-            onCloseCallback.run();
-        }
+        if (onCloseCallback != null) onCloseCallback.run();
     }
 
     private static String cleanComponentName(String raw) {
         if (raw == null) return "";
         String result = raw.trim();
 
-        String lower = result.toLowerCase(Locale.ROOT);
+        // strip leading tier "HV "
+        String low = result.toLowerCase(Locale.ROOT);
         for (String vn : GTValues.VN) {
             String pre = vn.toLowerCase(Locale.ROOT) + " ";
-            if (lower.startsWith(pre)) {
-                result = result.substring(pre.length());
-                lower = result.toLowerCase(Locale.ROOT);
+            if (low.startsWith(pre)) {
+                result = result.substring(pre.length()).trim();
+                low = result.toLowerCase(Locale.ROOT);
                 break;
             }
         }
 
         for (String vn : GTValues.VN) {
-            String suf1 = " (" + vn + ")";
-            String suf2 = " " + vn;
-            String suf3 = " + " + vn;
+            String up = vn.toUpperCase(Locale.ROOT);
+            String lo = vn.toLowerCase(Locale.ROOT);
 
-            if (result.endsWith(suf1)) {
-                result = result.substring(0, result.length() - suf1.length());
+            // Pattern: " → TIER" (uppercase)
+            String arrowTierUp = " → " + up;
+            if (result.contains(arrowTierUp)) {
+                result = result.replace(arrowTierUp, " →");
             }
-            if (result.endsWith(suf3)) {
-                result = result.substring(0, result.length() - suf3.length());
+
+            // Pattern: " → tier" (lowercase)
+            String arrowTierLo = " → " + lo;
+            if (result.toLowerCase(Locale.ROOT).contains(arrowTierLo)) {
+                int idx = result.toLowerCase(Locale.ROOT).indexOf(arrowTierLo);
+                if (idx >= 0) {
+                    result = result.substring(0, idx) + " →" + result.substring(idx + arrowTierLo.length());
+                }
             }
-            if (result.endsWith(suf2)) {
-                result = result.substring(0, result.length() - suf2.length());
+
+            String arrowTierNoSpace = "→ " + up;
+            if (result.contains(arrowTierNoSpace)) {
+                result = result.replace(arrowTierNoSpace, "→");
+            }
+
+            String tierArrowUp = " " + up + " →";
+            if (result.contains(tierArrowUp)) {
+                result = result.replace(tierArrowUp, " →");
+            }
+
+            String tierArrowLo = " " + lo + " →";
+            if (result.toLowerCase(Locale.ROOT).contains(tierArrowLo)) {
+                int idx = result.toLowerCase(Locale.ROOT).indexOf(tierArrowLo);
+                if (idx >= 0) {
+                    result = result.substring(0, idx) + " →" + result.substring(idx + tierArrowLo.length());
+                }
+            }
+        }
+
+        // strip trailing "(TIER)" and " TIER"
+        for (String vn : GTValues.VN) {
+            String up = vn.toUpperCase(Locale.ROOT);
+            String loTier = vn.toLowerCase(Locale.ROOT);
+
+            String sufParenLo = " (" + loTier + ")";
+            String sufParenUp = " (" + up + ")";
+            if (result.toLowerCase(Locale.ROOT).endsWith(sufParenLo)) {
+                result = result.substring(0, result.length() - sufParenLo.length()).trim();
+            }
+            if (result.endsWith(sufParenUp)) {
+                result = result.substring(0, result.length() - sufParenUp.length()).trim();
+            }
+
+            String sufSpace = " " + up;
+            if (result.endsWith(sufSpace)) {
+                result = result.substring(0, result.length() - sufSpace.length()).trim();
             }
         }
 
@@ -459,151 +420,92 @@ public class TierSelectionDialog extends Screen {
     }
 
     private static String tierName(int tier) {
-        if (tier >= 0 && tier < GTValues.VN.length) {
-            return GTValues.VN[tier].toUpperCase(Locale.ROOT);
-        }
+        if (tier >= 0 && tier < GTValues.VN.length) return GTValues.VN[tier].toUpperCase(Locale.ROOT);
         return "???";
     }
 
-    private static ChatFormatting tierColor(int tier) {
+    private static int getTierColorHex(int tier) {
         switch (tier) {
-            case GTValues.ULV:
-                return ChatFormatting.GRAY;
-            case GTValues.LV:
-                return ChatFormatting.GREEN;
-            case GTValues.MV:
-                return ChatFormatting.AQUA;
-            case GTValues.HV:
-                return ChatFormatting.YELLOW;
-            case GTValues.EV:
-                return ChatFormatting.LIGHT_PURPLE;
-            case GTValues.IV:
-                return ChatFormatting.BLUE;
-            case GTValues.LuV:
-                return ChatFormatting.DARK_AQUA;
-            case GTValues.ZPM:
-                return ChatFormatting.RED;
-            case GTValues.UV:
-                return ChatFormatting.DARK_PURPLE;
-            case GTValues.UHV:
-                return ChatFormatting.DARK_RED;
-            case GTValues.UEV:
-                return ChatFormatting.GOLD;
-            case GTValues.UIV:
-                return ChatFormatting.DARK_GREEN;
-            case GTValues.UXV:
-                return ChatFormatting.DARK_BLUE;
-            case GTValues.OpV:
-                return ChatFormatting.DARK_GRAY;
-            case GTValues.MAX:
-                return ChatFormatting.WHITE;
-            default:
-                return ChatFormatting.WHITE;
+            case 0:  return 0x545454;  // ULV
+            case 1:  return 0xA8A8A8;  // LV
+            case 2:  return 0x54FCFC;  // MV
+            case 3:  return 0xFCA800;  // HV
+            case 4:  return 0xA901A8;  // EV
+            case 5:  return 0x5454FC;  // IV
+            case 6:  return 0xFD55FC;  // LuV
+            case 7:  return 0xFD5554;  // ZPM
+            case 8:  return 0x01A9A8;  // UV
+            case 9:  return 0XA90001;  // UHV
+            case 10: return 0x54FC54;  // UEV
+            case 11: return 0x00A800;  // UIV
+            case 12: return 0xFCFC54;  // UXV
+            case 13: return 0x5454FC;  // OpV
+            case 14: return 0xFFFFFF;  // MAX
+            default: return 0xFFFFFF;
         }
     }
 
-    private MutableComponent buildTierLabel(
-            String baseName,
-            int currentTier,
-            int targetTier,
-            boolean hasEnough
-    ) {
-        boolean isCurrent = targetTier == currentTier;
-        boolean isUpgrade = targetTier > currentTier;
+    private static int getCoilColorHex(int coilTier) {
+        switch (coilTier) {
+            case 0:  return 0xfa8907;  // Cupronickel
+            case 1:  return 0x3c8cb0;  // Kanthal
+            case 2:  return 0xe08bd4;  // Nichrome
+            case 3:  return 0x1b0d7a;  // RTM Alloy
+            case 4:  return 0x536294;  // HSS-G
+            case 5:  return 0x292727;  // Naquadah
+            case 6:  return 0x5C2E6F;  // Trinium
+            case 7:  return 0x520000;  // Tritanium
+            default: return 0xFFFFFF;
+        }
+    }
 
-        String tierName = tierName(targetTier);
-        ChatFormatting color = tierColor(targetTier);
-
-        String arrow = isCurrent ? "• " : (isUpgrade ? "↑ " : "↓ ");
+    private MutableComponent buildTierLabel(String baseName, int currentTier, int targetTier, boolean hasEnough) {
+        int colorHex = getTierColorHex(targetTier);
+        String arrow = (targetTier > currentTier) ? "↑ " : "↓ ";
 
         MutableComponent result = Component.literal("")
-                .append(Component.literal(arrow).withStyle(color))
-                .append(Component.literal(baseName + " (" + tierName + ")"));
+                .append(Component.literal(arrow).withStyle(style -> style.withColor(colorHex)))
+                .append(Component.literal(baseName + " (" + tierName(targetTier) + ")").withStyle(style -> style.withColor(colorHex)));
 
         if (!hasEnough && !player.isCreative()) {
-            result.append(
-                    Component.literal(" (missing materials)")
-                            .withStyle(ChatFormatting.RED)
-            );
+            result = result.append(Component.literal(" [Missing]").withStyle(ChatFormatting.RED));
         }
-
         return result;
     }
 
-    private MutableComponent buildMaintenanceLabel(
-            String baseName,
-            int currentTier,
-            int targetTier,
-            boolean hasEnough
-    ) {
-        boolean isCurrent = targetTier == currentTier;
-        boolean isUpgrade = targetTier > currentTier;
-
-        ChatFormatting color = tierColor(targetTier);
-        String arrow = isCurrent ? "• " : (isUpgrade ? "↑ " : "↓ ");
+    private MutableComponent buildMaintenanceLabel(String baseName, int currentTier, int targetTier, boolean hasEnough) {
+        int colorHex = getTierColorHex(targetTier);
 
         MutableComponent result = Component.literal("")
-                .append(Component.literal(arrow).withStyle(color))
-                .append(Component.literal(baseName)); // sin "(LV)" etc
+                .append(Component.literal("→ ").withStyle(style -> style.withColor(colorHex)))
+                .append(Component.literal(baseName).withStyle(style -> style.withColor(colorHex)));
 
         if (!hasEnough && !player.isCreative()) {
-            result.append(
-                    Component.literal(" (missing materials)")
-                            .withStyle(ChatFormatting.RED)
-            );
+            result = result.append(Component.literal(" [Missing]").withStyle(ChatFormatting.RED));
         }
-
         return result;
     }
 
-    private MutableComponent buildCoilLabel(
-            String coilName,
-            int currentTier,
-            int targetTier,
-            boolean hasEnough
-    ) {
-        boolean isCurrent = targetTier == currentTier;
-        boolean isUpgrade = targetTier > currentTier;
-
-        // Color based on coil tier (0-7)
-        ChatFormatting color = getCoilColor(targetTier);
-        String arrow = isCurrent ? "• " : (isUpgrade ? "↑ " : "↓ ");
+    private MutableComponent buildCoilLabel(String coilName, int currentTier, int targetTier, boolean hasEnough) {
+        int colorHex = getCoilColorHex(targetTier);
 
         MutableComponent result = Component.literal("")
-                .append(Component.literal(arrow).withStyle(color))
-                .append(Component.literal(coilName));
+                .append(Component.literal("→ ").withStyle(style -> style.withColor(colorHex)))
+                .append(Component.literal(coilName).withStyle(style -> style.withColor(colorHex)));
 
         if (!hasEnough && !player.isCreative()) {
-            result.append(
-                    Component.literal(" (missing materials)")
-                            .withStyle(ChatFormatting.RED)
-            );
+            result = result.append(Component.literal(" [Missing]").withStyle(ChatFormatting.RED));
         }
-
         return result;
-    }
-
-    private static ChatFormatting getCoilColor(int coilTier) {
-        return switch (coilTier) {
-            case 0 -> ChatFormatting.WHITE;         // Cupronickel
-            case 1 -> ChatFormatting.YELLOW;        // Kanthal
-            case 2 -> ChatFormatting.GOLD;          // Nichrome
-            case 3 -> ChatFormatting.RED;           // RTM Alloy
-            case 4 -> ChatFormatting.LIGHT_PURPLE;  // HSS-G
-            case 5 -> ChatFormatting.DARK_PURPLE;   // Naquadah
-            case 6 -> ChatFormatting.BLUE;          // Trinium
-            case 7 -> ChatFormatting.DARK_BLUE;     // Tritanium
-            default -> ChatFormatting.WHITE;
-        };
     }
 
     private static class TierOption {
         final int tier;
-        final Component label;
+        final MutableComponent label;
         final List<MaterialAvailability> materials;
         final boolean hasEnough;
 
-        TierOption(int tier, Component label, List<MaterialAvailability> materials, boolean hasEnough) {
+        TierOption(int tier, MutableComponent label, List<MaterialAvailability> materials, boolean hasEnough) {
             this.tier = tier;
             this.label = label;
             this.materials = materials;
@@ -611,3 +513,4 @@ public class TierSelectionDialog extends Screen {
         }
     }
 }
+// I hate this file so much

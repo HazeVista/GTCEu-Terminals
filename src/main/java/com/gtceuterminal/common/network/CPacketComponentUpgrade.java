@@ -3,6 +3,7 @@ package com.gtceuterminal.common.network;
 import com.gtceuterminal.common.multiblock.ComponentInfo;
 import com.gtceuterminal.common.multiblock.ComponentType;
 import com.gtceuterminal.common.upgrade.ComponentUpgrader;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -54,7 +55,6 @@ public class CPacketComponentUpgrade {
                 var state = player.level().getBlockState(pos);
                 var block = state.getBlock();
 
-                // Detect component type and tier from block
                 ComponentType type = detectComponentType(block);
                 int currentTier = detectTier(block);
 
@@ -73,14 +73,10 @@ public class CPacketComponentUpgrade {
                         true
                 );
 
-                if (result.success) {
-                    upgraded++;
-                } else {
-                    failed++;
-                }
+                if (result.success) upgraded++;
+                else failed++;
             }
 
-            // Send feedback to player
             if (upgraded > 0) {
                 player.displayClientMessage(
                         Component.literal("§aUpgraded " + upgraded + " components to " +
@@ -88,14 +84,12 @@ public class CPacketComponentUpgrade {
                                 (failed > 0 ? " §e(" + failed + " failed)" : "!")),
                         false
                 );
-
                 player.playSound(SoundEvents.ANVIL_USE, 1.0f, 1.0f);
             } else {
                 player.displayClientMessage(
                         Component.literal("§cFailed to upgrade components"),
                         true
                 );
-
                 player.playSound(SoundEvents.VILLAGER_NO, 1.0f, 1.0f);
             }
         });
@@ -106,13 +100,17 @@ public class CPacketComponentUpgrade {
     private static ComponentType detectComponentType(net.minecraft.world.level.block.Block block) {
         String blockName = block.getDescriptionId().toLowerCase();
 
+        // Parallel Hatch
+        if (blockName.contains("parallel_hatch")) {
+            return ComponentType.PARALLEL_HATCH;
+        }
+
         // Check energy FIRST
         if (blockName.contains("energy_hatch") || blockName.contains("energy_input") ||
                 blockName.contains("energy.input") || blockName.contains("energy_output")) {
             return ComponentType.ENERGY_HATCH;
         }
 
-        // Then check item hatches
         if (blockName.contains("input_hatch") || blockName.contains("item_import_bus") ||
                 blockName.contains("item.input")) {
             return ComponentType.INPUT_HATCH;
@@ -121,7 +119,6 @@ public class CPacketComponentUpgrade {
             return ComponentType.OUTPUT_HATCH;
         }
 
-        // Fluid
         if (blockName.contains("input_bus") || blockName.contains("fluid_import_hatch") ||
                 blockName.contains("fluid.input")) {
             return ComponentType.INPUT_BUS;
@@ -130,13 +127,9 @@ public class CPacketComponentUpgrade {
             return ComponentType.OUTPUT_BUS;
         }
 
-        if (blockName.contains("muffler")) {
-            return ComponentType.MUFFLER;
-        } else if (blockName.contains("maintenance")) {
-            return ComponentType.MAINTENANCE;
-        } else if (blockName.contains("coil")) {
-            return ComponentType.COIL;
-        }
+        if (blockName.contains("muffler")) return ComponentType.MUFFLER;
+        if (blockName.contains("maintenance")) return ComponentType.MAINTENANCE;
+        if (blockName.contains("coil")) return ComponentType.COIL;
 
         com.gtceuterminal.GTCEUTerminalMod.LOGGER.warn("Could not detect component type for block: {}", blockName);
         return null;

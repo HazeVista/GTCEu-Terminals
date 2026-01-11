@@ -9,7 +9,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_author}"
 description='''${mod_description}'''
-logoFile="assets/${mod_id}/logo.png"
+logoFile="assets/gtceuterminal/logo/advanced_terminal_logo.png"
 
 [[dependencies.${mod_id}]]
     modId="forge"

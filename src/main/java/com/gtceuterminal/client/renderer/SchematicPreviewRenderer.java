@@ -1,7 +1,9 @@
 package com.gtceuterminal.client.renderer;
 
 import com.gtceuterminal.common.data.SchematicData;
+
 import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;

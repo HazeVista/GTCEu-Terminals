@@ -1,33 +1,26 @@
 package com.gtceuterminal.common.multiblock;
 
 public enum MultiblockStatus {
-
     ACTIVE,
-
     IDLE,
-
     NEEDS_MAINTENANCE,
-
     NO_POWER,
-
     DISABLED,
-
     UNFORMED,
-
     OUTPUT_FULL;
-
+    
     public int getColor() {
         return switch (this) {
-            case ACTIVE -> 0x00FF00;            // Green
-            case IDLE -> 0xFFFF00;              // Yellow
-            case NEEDS_MAINTENANCE -> 0xFF0000; // Red
-            case NO_POWER -> 0xFF8800;          // Orange
-            case DISABLED -> 0xFFFFFF;          // White
-            case UNFORMED -> 0xFF0000;          // Red
-            case OUTPUT_FULL -> 0xFF00FF;       // Magenta
+            case ACTIVE -> 0x00FF00;
+            case IDLE -> 0xFFFF00;
+            case NEEDS_MAINTENANCE -> 0xFF8800;
+            case NO_POWER -> 0xFF0000;
+            case DISABLED -> 0x808080;
+            case UNFORMED -> 0xFF0000;
+            case OUTPUT_FULL -> 0x0088FF;
         };
     }
-
+    
     public String getDisplayName() {
         return switch (this) {
             case ACTIVE -> "Active";

@@ -1,33 +1,32 @@
 package com.gtceuterminal;
 
-import com.gtceuterminal.common.config.CoilConfig;
-import com.gtceuterminal.common.config.ComponentConfig;
+import com.gtceuterminal.common.config.*;
 import com.gtceuterminal.common.data.GTCEUTerminalItems;
+import com.gtceuterminal.common.data.GTCEUTerminalTabs;
 import com.gtceuterminal.common.network.TerminalNetwork;
 
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Mod(GTCEUTerminalMod.MOD_ID)
+@Mod("gtceuterminal")
 public class GTCEUTerminalMod {
-
     public static final String MOD_ID = "gtceuterminal";
     public static final String NAME = "GTCEu Terminal";
-    public static final Logger LOGGER = LoggerFactory.getLogger(NAME);
+    public static final Logger LOGGER = LoggerFactory.getLogger("GTCEu Terminal");
 
     public GTCEUTerminalMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Register items
         GTCEUTerminalItems.ITEMS.register(modEventBus);
+        GTCEUTerminalTabs.register(modEventBus);
 
-        // Register network packets
         modEventBus.addListener(this::commonSetup);
 
         LOGGER.info("GTCEu Terminal initialized");
@@ -37,20 +36,52 @@ public class GTCEUTerminalMod {
         event.enqueueWork(TerminalNetwork::registerPackets);
     }
 
-    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+    @EventBusSubscriber(modid = "gtceuterminal", bus = Mod.EventBusSubscriber.Bus.MOD)
     public static class ModEventHandler {
-
         @SubscribeEvent
         public static void onCommonSetup(FMLCommonSetupEvent event) {
             event.enqueueWork(() -> {
-                // Initialize coil configuration
-                CoilConfig.initialize();
-                LOGGER.info("Coil configuration loaded with {} coil types",
-                        CoilConfig.getAllCoils().size());
+                LOGGER.info("Initializing GTCEu Terminal configuration system...");
 
-                // Initialize component configuration
-                ComponentConfig.initialize();
-                LOGGER.info("Component configuration loaded");
+                // Coil
+                CoilConfig.initialize();
+                LOGGER.info("  ✓ Coil configuration: {} types", CoilConfig.getAllCoils().size());
+
+                // Hatches
+                HatchConfig.initialize();
+                LOGGER.info("  ✓ Hatch configuration: {} input, {} output",
+                        HatchConfig.getInputHatches().size(),
+                        HatchConfig.getOutputHatches().size());
+                // Buses
+                BusConfig.initialize();
+                LOGGER.info("  ✓ Bus configuration: {} input, {} output",
+                        BusConfig.getInputBuses().size(),
+                        BusConfig.getOutputBuses().size());
+                // Energy Hatches
+                EnergyHatchConfig.initialize();
+                LOGGER.info("  ✓ Energy hatch configuration: {} input, {} output",
+                        EnergyHatchConfig.getInputHatches().size(),
+                        EnergyHatchConfig.getOutputHatches().size());
+                // Parallel Hatches
+                ParallelHatchConfig.initialize();
+                LOGGER.info("  ✓ Parallel hatch configuration: {} hatches",
+                        ParallelHatchConfig.getAllParallelHatches().size());
+                // Muffler Hatches
+                MufflerHatchConfig.initialize();
+                LOGGER.info("  ✓ Muffler hatch configuration: {} hatches",
+                        MufflerHatchConfig.getAllMufflerHatches().size());
+
+                // Calculate total components
+                int totalComponents =
+                        HatchConfig.getInputHatches().size() +
+                                HatchConfig.getOutputHatches().size() +
+                                BusConfig.getInputBuses().size() +
+                                BusConfig.getOutputBuses().size() +
+                                EnergyHatchConfig.getAllEnergyHatches().size() +
+                                ParallelHatchConfig.getAllParallelHatches().size() +
+                                MufflerHatchConfig.getAllMufflerHatches().size();
+
+                LOGGER.info("GTCEu Terminal configuration loaded: {} total components", totalComponents);
             });
         }
     }

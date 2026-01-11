@@ -5,7 +5,6 @@ import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
 import com.gtceuterminal.GTCEUTerminalMod;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -47,31 +46,25 @@ public class ImprovedTerminalBehavior {
         Level level = context.getLevel();
         BlockPos blockPos = context.getClickedPos();
         ItemStack itemStack = context.getItemInHand();
+        InteractionHand usedHand = context.getHand();
+
+        // Requested behavior: allow opening the Multi-Structure Manager no matter what block is clicked.
+     
+        if (level.isClientSide) {
+            openMultiStructureManager(player, itemStack, usedHand);
+        }
 
         if (cooldownTicks > 0 && player.getCooldowns().isOnCooldown(itemStack.getItem())) {
             if (!level.isClientSide) {
                 sendMessage(player, "terminal.cooldown", false);
             }
-            return InteractionResult.FAIL;
-        }
-
-        MetaMachine machine = MetaMachine.getMachine(level, blockPos);
-        if (!(machine instanceof IMultiController controller)) {
-            if (!level.isClientSide) {
-                sendMessage(player, "terminal.not_controller", false);
-            }
-            return InteractionResult.FAIL;
-        }
-
-        if (controller.isFormed()) {
-            // Open Multi-Structure Manager directly
-            if (level.isClientSide) {
-                openMultiStructureManager(player, itemStack);
-            }
+            // Cooldown only affects server-side actions (like auto-build). The GUI is still allowed.
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
 
-        if (!level.isClientSide) {
+        MetaMachine machine = MetaMachine.getMachine(level, blockPos);
+
+        if (!level.isClientSide && machine instanceof IMultiController controller && !controller.isFormed()) {
             try {
                 controller.getPattern().autoBuild(player, controller.getMultiblockState());
 
@@ -99,7 +92,7 @@ public class ImprovedTerminalBehavior {
 
         if (player.isShiftKeyDown()) {
             if (level.isClientSide) {
-                openMultiStructureManager(player, itemStack);
+                openMultiStructureManager(player, itemStack, usedHand);
             }
             return InteractionResultHolder.sidedSuccess(itemStack, level.isClientSide);
         }
@@ -107,7 +100,7 @@ public class ImprovedTerminalBehavior {
         return InteractionResultHolder.pass(itemStack);
     }
 
-    private void openMultiStructureManager(Player player, ItemStack itemStack) {
+    private void openMultiStructureManager(Player player, ItemStack itemStack, InteractionHand hand) {
         com.gtceuterminal.client.gui.multiblock.MultiStructureManagerScreen.open(player, itemStack);
     }
 

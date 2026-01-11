@@ -6,6 +6,7 @@ import com.gtceuterminal.common.material.MaterialCalculator;
 import com.gtceuterminal.common.multiblock.ComponentInfo;
 import com.gtceuterminal.common.multiblock.ComponentType;
 import com.gtceuterminal.GTCEUTerminalMod;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;

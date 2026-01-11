@@ -108,7 +108,6 @@ public class TierProgression {
         // Check voltage tiers
         for (String tier : VOLTAGE_TIERS) {
             if (currentPath.contains("." + tier + ".") || currentPath.endsWith("." + tier)) {
-                // Generate all paths with different tiers
                 for (String newTier : VOLTAGE_TIERS) {
                     tiers.add(currentPath.replace(tier, newTier));
                 }
@@ -125,7 +124,7 @@ public class TierProgression {
             if (path.contains(COIL_TIERS.get(i))) return i;
         }
         
-        // Casings
+        // Casings (needs work later, some projects uses casings as tiered blocks, but not gtceu)
         for (int i = 0; i < CASING_TIERS.size(); i++) {
             if (path.contains(CASING_TIERS.get(i))) return i;
         }

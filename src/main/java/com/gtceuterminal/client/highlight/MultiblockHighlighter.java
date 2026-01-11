@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 
-  // Manages multiblock highlighting on client side (needs more polish, next update)
+  // Manages multiblock highlighting on client side (going to be removed, next update)
 
 public class MultiblockHighlighter {
 

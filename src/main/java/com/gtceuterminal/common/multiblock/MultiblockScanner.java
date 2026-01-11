@@ -3,40 +3,46 @@ package com.gtceuterminal.common.multiblock;
 import com.gtceuterminal.GTCEUTerminalMod;
 import com.gtceuterminal.common.config.CoilConfig;
 
+import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
-import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
-import com.gregtechceu.gtceu.api.pattern.MultiblockState;
-import com.gregtechceu.gtceu.api.GTValues;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.Collection;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 public class MultiblockScanner {
+
+    private static final int MAX_SCAN_SIZE_XZ = 48;
+    private static final int MAX_SCAN_SIZE_Y  = 48;
+    private static final int BOUNDS_PADDING = 2;
+
+private static boolean isCandidate(BlockState state) {
+    if (state == null || state.isAir()) return false;
+
+    try {
+        String namespace = state.getBlock().builtInRegistryHolder().key().location().getNamespace();
+        if ("gtceu".equals(namespace)) return true;
+    } catch (Exception ignored) {}
+
+    // Allow configured coil blocks even if they aren't in the gtceu namespace.
+    return CoilConfig.getCoilTier(state) >= 0;
+}
 
     public static List<MultiblockInfo> scanNearbyMultiblocks(Player player, Level level, int radius) {
         List<MultiblockInfo> multiblocks = new ArrayList<>();
         BlockPos playerPos = player.blockPosition();
         Vec3 playerVec = player.position();
 
-        // Scan area around player
         for (BlockPos pos : BlockPos.betweenClosed(
                 playerPos.offset(-radius, -radius, -radius),
                 playerPos.offset(radius, radius, radius)
@@ -44,10 +50,9 @@ public class MultiblockScanner {
             MetaMachine machine = MetaMachine.getMachine(level, pos);
 
             if (machine instanceof IMultiController controller) {
-                // Calculate distance
-                double distance = playerVec.distanceTo(Vec3.atCenterOf(pos));
+                BlockPos controllerPos = pos.immutable();
+                double distance = playerVec.distanceTo(Vec3.atCenterOf(controllerPos));
 
-                // Get multiblock info
                 String name = getMultiblockName(controller);
                 int tier = getMultiblockTier(controller);
                 boolean isFormed = controller.isFormed();
@@ -55,13 +60,12 @@ public class MultiblockScanner {
                 MultiblockInfo info = new MultiblockInfo(
                         controller,
                         name,
-                        pos,
+                        controllerPos,
                         tier,
                         distance,
                         isFormed
                 );
 
-                // Scan components if formed
                 if (isFormed) {
                     scanComponents(controller, info, level);
                 }
@@ -70,9 +74,7 @@ public class MultiblockScanner {
             }
         }
 
-        // Sort by distance
         multiblocks.sort((a, b) -> Double.compare(a.getDistanceFromPlayer(), b.getDistanceFromPlayer()));
-
         return multiblocks;
     }
 
@@ -84,29 +86,27 @@ public class MultiblockScanner {
             var parts = controller.getParts();
             if (parts != null && !parts.isEmpty()) {
                 for (var part : parts) {
-                    BlockPos partPos = part.self().getPos();
-                    if (scannedPositions.contains(partPos)) continue;
-                    scannedPositions.add(partPos);
+                    if (part == null || part.self() == null) continue;
+
+                    BlockPos partPos = part.self().getPos().immutable();
+                    if (!scannedPositions.add(partPos)) continue;
 
                     BlockState state = level.getBlockState(partPos);
                     ComponentInfo component = identifyComponent(state, partPos);
-
-                    if (component != null) {
-                        info.addComponent(component);
-                    }
+                    if (component != null) info.addComponent(component);
                 }
             }
 
-            Set<BlockPos> structurePositions = getMultiblockStructurePositions(controller, level);
+            Set<BlockPos> structurePositions = getMultiblockBlocks(controller);
 
             for (BlockPos pos : structurePositions) {
-                if (scannedPositions.contains(pos)) continue;
-                scannedPositions.add(pos);
+                BlockPos ipos = pos.immutable();
+                if (!scannedPositions.add(ipos)) continue;
 
-                BlockState state = level.getBlockState(pos);
+                BlockState state = level.getBlockState(ipos);
                 if (state.isAir()) continue;
 
-                ComponentInfo component = identifyComponent(state, pos);
+                ComponentInfo component = identifyComponent(state, ipos);
 
                 if (component != null &&
                         (component.getType().isUpgradeable() || component.getType() == ComponentType.COIL)) {
@@ -114,221 +114,54 @@ public class MultiblockScanner {
                 }
             }
 
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.debug("Scanned {} total blocks for multiblock at {}",
+            GTCEUTerminalMod.LOGGER.debug("Scanned {} total blocks for multiblock at {}",
                     scannedPositions.size(), controllerPos);
 
-            // Log component summary
-            var components = info.getComponents();
-            long coilCount = components.stream().filter(c -> c.getType() == ComponentType.COIL).count();
-            if (coilCount > 0) {
-                com.gtceuterminal.GTCEUTerminalMod.LOGGER.info("Found {} coils in multiblock at {}",
-                        coilCount, controllerPos);
-            }
-
         } catch (Exception e) {
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.error("Error scanning components", e);
+            GTCEUTerminalMod.LOGGER.error("Error scanning components", e);
         }
-    }
-
-    private static Set<BlockPos> getMultiblockStructurePositions(IMultiController controller, Level level) {
-        Set<BlockPos> result = new HashSet<>();
-
-        if (controller == null) {
-            return result;
-        }
-
-        BlockPos controllerPos = controller.self().getPos();
-
-        try {
-            MultiblockState state = controller.getMultiblockState();
-            if (state != null) {
-                Collection<BlockPos> cache = null;
-
-                try {
-                    cache = state.getCache();
-                } catch (Exception ex) {
-                    GTCEUTerminalMod.LOGGER.warn(
-                            "MultiblockState cache is null or unreadable for controller at {}, falling back to BFS scan",
-                            controllerPos
-                    );
-                }
-
-                if (cache != null && !cache.isEmpty()) {
-                    result.addAll(cache);
-                    GTCEUTerminalMod.LOGGER.debug(
-                            "Using MultiblockState cache for controller at {} ({} blocks)",
-                            controllerPos, result.size()
-                    );
-                    return result;
-                }
-            }
-        } catch (Exception e) {
-            GTCEUTerminalMod.LOGGER.error(
-                    "Error while reading multiblock structure positions for controller at " + controllerPos,
-                    e
-            );
-        }
-
-        int maxRadius = 16;
-        Deque<BlockPos> queue = new ArrayDeque<>();
-        Set<BlockPos> visited = new HashSet<>();
-
-        queue.add(controllerPos);
-        visited.add(controllerPos);
-
-        while (!queue.isEmpty()) {
-            BlockPos current = queue.poll();
-
-            if (!isWithinRadius(controllerPos, current, maxRadius)) {
-                continue;
-            }
-
-            BlockState currentState = level.getBlockState(current);
-            if (currentState.isAir()) {
-                continue;
-            }
-
-            String namespace = currentState.getBlock()
-                    .builtInRegistryHolder()
-                    .key()
-                    .location()
-                    .getNamespace();
-
-            if (!"gtceu".equals(namespace)) {
-                continue;
-            }
-
-            result.add(current.immutable());
-
-            for (Direction dir : Direction.values()) {
-                BlockPos neighbor = current.relative(dir);
-                if (!visited.contains(neighbor) && isWithinRadius(controllerPos, neighbor, maxRadius)) {
-                    visited.add(neighbor);
-                    queue.add(neighbor);
-                }
-            }
-        }
-
-        GTCEUTerminalMod.LOGGER.info(
-                "Fallback BFS found {} GTCEu blocks around controller at {}",
-                result.size(), controllerPos
-        );
-
-        return result;
-    }
-
-    private static boolean isWithinRadius(BlockPos origin, BlockPos pos, int radius) {
-        int dx = pos.getX() - origin.getX();
-        int dy = pos.getY() - origin.getY();
-        int dz = pos.getZ() - origin.getZ();
-        return dx * dx + dy * dy + dz * dz <= radius * radius;
-    }
-
-    private static BlockPos findNearestController(Level level, BlockPos currentController) {
-        BlockPos nearest = null;
-        double minDistance = Double.MAX_VALUE;
-        int controllersFound = 0;
-
-        // Scan area around current controller for other controllers
-        int searchRadius = 30;
-
-        for (BlockPos pos : BlockPos.betweenClosed(
-                currentController.offset(-searchRadius, -searchRadius, -searchRadius),
-                currentController.offset(searchRadius, searchRadius, searchRadius)
-        )) {
-            if (pos.equals(currentController)) continue;
-
-            MetaMachine machine = MetaMachine.getMachine(level, pos);
-            if (machine instanceof IMultiController) {
-                controllersFound++;
-                double distance = Math.sqrt(
-                        Math.pow(pos.getX() - currentController.getX(), 2) +
-                                Math.pow(pos.getY() - currentController.getY(), 2) +
-                                Math.pow(pos.getZ() - currentController.getZ(), 2)
-                );
-
-                com.gtceuterminal.GTCEUTerminalMod.LOGGER.debug(
-                        "Found other controller at {} distance {} from {}",
-                        pos, distance, currentController
-                );
-
-                if (distance < minDistance) {
-                    minDistance = distance;
-
-                    nearest = pos.immutable();
-                }
-            }
-        }
-
-        if (nearest != null) {
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.info(
-                    "Nearest controller to {} is at {} (distance {}), found {} total controllers",
-                    currentController, nearest, minDistance, controllersFound
-            );
-        } else {
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.warn(
-                    "No other controllers found within {} blocks of {} (scanned {} controllers total)",
-                    searchRadius, currentController, controllersFound
-            );
-        }
-
-        return nearest;
     }
 
     private static ComponentInfo identifyComponent(BlockState state, BlockPos pos) {
-        String blockName = state.getBlock().getDescriptionId().toLowerCase();
+        try {
+            String blockName = state.getBlock().builtInRegistryHolder().key().location().getPath();
 
-        ComponentType type = identifyComponentType(blockName);
-        int tier = identifyTier(blockName, state);
+            ComponentType type = identifyComponentType(blockName);
+            int tier = identifyTier(blockName, state);
 
-        // Debug logging for coils
-        if (type == ComponentType.COIL) {
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.info("Detected COIL: {} at {} with tier {}",
-                    blockName, pos, tier);
+            return new ComponentInfo(type, tier, pos.immutable(), state);
+        } catch (Exception e) {
+            return null;
         }
-
-        return new ComponentInfo(type, tier, pos, state);
     }
 
     private static ComponentType identifyComponentType(String blockName) {
-        // Check for energy FIRST
-        if (blockName.contains("energy") && (blockName.contains("hatch") || blockName.contains("input"))) {
-            return ComponentType.ENERGY_HATCH;
+        if (blockName == null) return ComponentType.OTHER;
+
+        String lower = blockName.toLowerCase();
+
+        // Parallel Hatch
+        if (lower.contains("parallel_hatch")) {
+            return ComponentType.PARALLEL_HATCH;
         }
 
-        // Check for hatches
-        if (blockName.contains("input_hatch")) {
+        if (lower.contains("input_hatch") || lower.contains("import_hatch")) {
             return ComponentType.INPUT_HATCH;
-        } else if (blockName.contains("output_hatch")) {
+        } else if (lower.contains("output_hatch") || lower.contains("export_hatch")) {
             return ComponentType.OUTPUT_HATCH;
-        } else if (blockName.contains("dual_hatch")) {
-            return ComponentType.DUAL_HATCH;
-        }
-
-        // Check for buses
-        else if (blockName.contains("input_bus")) {
+        } else if (lower.contains("input_bus") || lower.contains("import_bus")) {
             return ComponentType.INPUT_BUS;
-        } else if (blockName.contains("output_bus")) {
+        } else if (lower.contains("output_bus") || lower.contains("export_bus")) {
             return ComponentType.OUTPUT_BUS;
-        }
-
-        else if (blockName.contains("muffler")) {
+        } else if (lower.contains("energy_hatch") || lower.contains("dynamo_hatch")) {
+            return ComponentType.ENERGY_HATCH;
+        } else if (lower.contains("muffler")) {
             return ComponentType.MUFFLER;
-        }
-
-        else if (blockName.contains("maintenance")) {
+        } else if (lower.contains("maintenance")) {
             return ComponentType.MAINTENANCE;
-        }
-
-        else if (blockName.contains("coil")) {
+        } else if (lower.contains("coil")) {
             return ComponentType.COIL;
-        }
-
-        else if (blockName.contains("casing")) {
-            return ComponentType.CASING;
-        }
-
-        else if (blockName.contains("pipe")) {
+        } else if (lower.contains("pipe")) {
             return ComponentType.PIPE;
         }
 
@@ -336,15 +169,17 @@ public class MultiblockScanner {
     }
 
     private static int identifyTier(String blockName, BlockState state) {
-        // Special handling for coils
-        if (blockName.contains("coil")) {
+        if (blockName == null) return -1;
+
+        String lower = blockName.toLowerCase();
+
+        if (lower.contains("coil")) {
             return CoilConfig.getCoilTier(state);
         }
 
-        // Check for each tier name
         for (int i = 0; i < GTValues.VN.length; i++) {
             String tierName = GTValues.VN[i].toLowerCase();
-            if (blockName.contains(tierName) || blockName.contains("." + tierName + ".")) {
+            if (lower.contains(tierName) || lower.contains("." + tierName + ".")) {
                 return i;
             }
         }
@@ -362,23 +197,24 @@ public class MultiblockScanner {
             }
 
             String className = controller.getClass().getSimpleName();
-
             String name = className
                     .replace("MetaTileEntity", "")
                     .replace("Machine", "")
                     .replace("Controller", "");
 
-            return Arrays.stream(name.split("(?=[A-Z])"))
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.joining(" "));
-
+            return name.isEmpty() ? "Unknown Multiblock" : name;
         } catch (Exception e) {
             return "Unknown Multiblock";
         }
     }
 
     private static int getMultiblockTier(IMultiController controller) {
-        return 1;
+        try {
+            if (controller instanceof MetaMachine meta) {
+                return meta.getDefinition().getTier();
+            }
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     public static Set<BlockPos> getMultiblockBlocks(IMultiController controller) {
@@ -387,41 +223,63 @@ public class MultiblockScanner {
         Level level = controller.self().getLevel();
 
         try {
+            List<BlockPos> anchors = new ArrayList<>();
+            anchors.add(controllerPos.immutable());
+
             var parts = controller.getParts();
             if (parts != null && !parts.isEmpty()) {
                 for (var part : parts) {
                     if (part != null && part.self() != null) {
-                        positions.add(part.self().getPos());
-                    }
-                }
-                if (!positions.isEmpty()) {
-                    com.gtceuterminal.GTCEUTerminalMod.LOGGER.debug("Got {} blocks from parts", positions.size());
-                    return positions;
-                }
-            }
-
-            for (int x = -16; x <= 16; x++) {
-                for (int y = -16; y <= 16; y++) {
-                    for (int z = -16; z <= 16; z++) {
-                        BlockPos pos = controllerPos.offset(x, y, z);
-                        BlockState state = level.getBlockState(pos);
-
-                        if (state.isAir()) continue;
-
-                        // Check if it's a GTCEu block
-                        String namespace = state.getBlock().builtInRegistryHolder().key().location().getNamespace();
-                        if (namespace.equals("gtceu")) {
-                            positions.add(pos.immutable());
-                        }
+                        BlockPos p = part.self().getPos().immutable();
+                        anchors.add(p);
+                        positions.add(p);
                     }
                 }
             }
 
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.info("Area scan found {} GTCEu blocks around controller at {}",
-                    positions.size(), controllerPos);
+            Bounds b = Bounds.fromAnchors(anchors, BOUNDS_PADDING);
+b = b.clampToMaxSize(controllerPos, MAX_SCAN_SIZE_XZ, MAX_SCAN_SIZE_Y);
+
+// Add controller itself if it's a candidate.
+if (isCandidate(level.getBlockState(controllerPos))) {
+    positions.add(controllerPos.immutable());
+}
+
+// Flood-fill only connected candidate blocks. This avoids "merging" nearby but separated multiblocks.
+ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+Set<BlockPos> visited = new HashSet<>();
+
+for (BlockPos a : anchors) {
+    if (a == null) continue;
+    if (visited.add(a)) {
+        queue.add(a);
+    }
+}
+
+while (!queue.isEmpty()) {
+    BlockPos cur = queue.poll();
+
+    for (Direction dir : Direction.values()) {
+        BlockPos next = cur.relative(dir);
+        if (!b.contains(next)) continue;
+        if (!visited.add(next)) continue;
+
+        BlockState s = level.getBlockState(next);
+        if (!isCandidate(s)) continue;
+
+        positions.add(next.immutable());
+        queue.add(next);
+    }
+}
+GTCEUTerminalMod.LOGGER.debug(
+                    "getMultiblockBlocks: {} blocks in bounds [{},{} , {},{} , {},{}] controller={}",
+                    positions.size(),
+                    b.minX, b.maxX, b.minY, b.maxY, b.minZ, b.maxZ,
+                    controllerPos
+            );
 
         } catch (Exception e) {
-            com.gtceuterminal.GTCEUTerminalMod.LOGGER.error("Error scanning multiblock blocks at " + controllerPos, e);
+            GTCEUTerminalMod.LOGGER.error("Error scanning multiblock blocks at " + controllerPos, e);
         }
 
         return positions;
@@ -439,10 +297,72 @@ public class MultiblockScanner {
                 if (!state.isAir()) {
                     data.addBlock(state);
                 }
-            } catch (Exception e) {
-            }
+            } catch (Exception ignored) {}
         }
 
         return data;
+    }
+
+    private static final class Bounds {
+        int minX, maxX, minY, maxY, minZ, maxZ;
+
+
+boolean contains(BlockPos pos) {
+    if (pos == null) return false;
+    int x = pos.getX();
+    int y = pos.getY();
+    int z = pos.getZ();
+    return x >= minX && x <= maxX
+            && y >= minY && y <= maxY
+            && z >= minZ && z <= maxZ;
+}
+
+        static Bounds fromAnchors(List<BlockPos> anchors, int padding) {
+            Bounds b = new Bounds();
+            b.minX = Integer.MAX_VALUE;
+            b.minY = Integer.MAX_VALUE;
+            b.minZ = Integer.MAX_VALUE;
+            b.maxX = Integer.MIN_VALUE;
+            b.maxY = Integer.MIN_VALUE;
+            b.maxZ = Integer.MIN_VALUE;
+
+            for (BlockPos p : anchors) {
+                b.minX = Math.min(b.minX, p.getX());
+                b.minY = Math.min(b.minY, p.getY());
+                b.minZ = Math.min(b.minZ, p.getZ());
+                b.maxX = Math.max(b.maxX, p.getX());
+                b.maxY = Math.max(b.maxY, p.getY());
+                b.maxZ = Math.max(b.maxZ, p.getZ());
+            }
+
+            b.minX -= padding; b.maxX += padding;
+            b.minY -= padding; b.maxY += padding;
+            b.minZ -= padding; b.maxZ += padding;
+
+            return b;
+        }
+
+        Bounds clampToMaxSize(BlockPos center, int maxXZ, int maxY) {
+            int sizeX = (maxX - minX) + 1;
+            int sizeY = (maxY - minY) + 1;
+            int sizeZ = (maxZ - minZ) + 1;
+
+            if (sizeX > maxXZ) {
+                int half = maxXZ / 2;
+                minX = center.getX() - half;
+                maxX = center.getX() + half;
+            }
+            if (sizeZ > maxXZ) {
+                int half = maxXZ / 2;
+                minZ = center.getZ() - half;
+                maxZ = center.getZ() + half;
+            }
+            if (sizeY > maxY) {
+                int half = maxY / 2;
+                minY = center.getY() - half;
+                maxY = center.getY() + half;
+            }
+            return this;
+        }
     }
 }
