@@ -78,6 +78,8 @@ public class SchematicData {
 
         com.gtceuterminal.GTCEUTerminalMod.LOGGER.info("Saving schematic '{}' - originalFacing: {}", name, originalFacing);
 
+        // Able to copy and paste blocks from different mods, include liquids like water and lava.
+
         ListTag blocksList = new ListTag();
         for (Map.Entry<BlockPos, BlockState> entry : blocks.entrySet()) {
             CompoundTag blockTag = new CompoundTag();
@@ -156,7 +158,7 @@ public class SchematicData {
                 };
                 return state.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING, rotated);
             }
-        } catch (Exception e) {
+        }catch (Exception e) {
         }
 
         return state;
