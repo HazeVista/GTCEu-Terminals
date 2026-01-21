@@ -22,7 +22,7 @@ This gadget allows you to shift + right-click a multiblock controller in order t
 
 **Dismantler**:
 
-This final gadget allows you to shift + right-click a multiblock controller in order to pick up all blocks that are a part of the structure and put them in the player's inventory. Any excess blocks picked up by the dismantler will be dropped on the ground if player inventory is full.(the dismantler is currently a planned feature and not complete)
+This final gadget allows you to shift + right-click a multiblock controller in order to pick up all blocks that are a part of the structure and put them in the player's inventory. Any excess blocks picked up by the dismantler will be dropped on the ground if player inventory is full.
 
 
 

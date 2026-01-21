@@ -4,12 +4,12 @@
   "item.gtceuterminal.multi_structure_manager": "Gestor Multi-Estructura",
   "item.gtceuterminal.schematic_interface": "Interfaz de Esquemas",
 
-  "item.gtceuterminal.terminal.success": "Multibloque construido exitosamente",
-  "item.gtceuterminal.terminal.failed": "Fallo al construir el multibloque",
+  "item.gtceuterminal.terminal.success": "Multibloque Construido Exitosamente",
+  "item.gtceuterminal.terminal.failed": "Fallo al Construir el Multibloque",
   "item.gtceuterminal.terminal.cooldown": "Terminal en tiempo de espera",
-  "item.gtceuterminal.terminal.not_controller": "No es un controlador de multibloque",
-  "item.gtceuterminal.terminal.already_formed": "Multibloque ya formado",
+  "item.gtceuterminal.terminal.not_controller": "No es un Controlador de Multibloque",
+  "item.gtceuterminal.terminal.already_formed": "Multibloque ya Formado",
 
-  "item.gtceuterminal.multi_structure_manager.tooltip": "Gestiona y mejora multiblocks cercanos",
-  "item.gtceuterminal.schematic_interface.tooltip": "Copia y pega esquemas de multiblocks"
+  "item.gtceuterminal.multi_structure_manager.tooltip": "Gestiona y Mejora Multiblocks Cercanos",
+  "item.gtceuterminal.schematic_interface.tooltip": "Copia y Pega Esquemas de Multiblocks"
 }
