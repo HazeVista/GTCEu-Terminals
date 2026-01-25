@@ -31,6 +31,14 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -Pmod_version=${{ github.event.release.tag_name }}
 
+      - name: Pick release jar
+        run: |
+          JAR=$(find build/libs -maxdepth 1 -type f -name "gtceuterminal-*.jar" \
+            ! -name "*-dev.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" \
+              | head -n 1)
+          echo "RELEASE_JAR=$JAR" >> $GITHUB_ENV
+          echo "Using jar: $JAR"
+
       - name: Verify JAR exists
         run: |
           JAR_COUNT=$(find build/libs -name "*.jar" ! -name "*-dev.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" | wc -l)
@@ -41,27 +49,23 @@ jobs:
           echo "Found $JAR_COUNT JAR file(s)"
           ls -lh build/libs/*.jar
 
-      - name: Publish to Modrinth
+      - name: Publish to Modrinth + CurseForge
         uses: Kir-Antipov/mc-publish@v3.3
         with:
-          modrinth-id: ${{ secrets.MODRINTH_PROJECT_ID }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-
-          files: |
-            build/libs/!(*-@(dev|sources|javadoc)).jar
+          files: ${{ env.RELEASE_JAR }}
 
           loaders: forge
           game-versions: ${{ env.MINECRAFT_VERSION }}
-
           version: ${{ github.event.release.tag_name }}
           name: ${{ github.event.release.name }}
           changelog: ${{ github.event.release.body }}
-
           version-type: release
 
-          modrinth-dependencies: |
-            gregtechceu-modern(required){modrinth:3dT8kQix}
-            ldlib(required){modrinth:gSdYOajW}
+          modrinth-id: ${{ secrets.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+
+          curseforge-id: ${{ secrets.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
 
           retry-attempts: 3
           retry-delay: 10000
